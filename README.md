@@ -39,5 +39,5 @@ python train.py -c sample_configs/config_embedding_bert_intent_classifier.yml --
 #### Lastly
 an example video with sanofi chatbot for reference
 
-![](https://github.com/weizhenzhao/rasa_nlu/raw/master/speech.mp4)
+[![Watch the video](https://raw.github.com/GabLeRoux/WebMole/master/ressources/WebMole_Youtube_Video.png)](https://github.com/weizhenzhao/rasa_nlu/raw/master/speech.mp4)
 
