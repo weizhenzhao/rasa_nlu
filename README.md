@@ -1,10 +1,10 @@
 
-# supply chain bot for intent classification<br>
+# Supply Chain Bot for intent classification<br>
 This project include servel trainning data from real projects<br>
 including sanofi supply chain bot and the high talk bot in shanghai xuhui<br>
 
 
-## trainning with bert model<br>
+## Trainning with bert model<br>
 
 #### First <br>
 
