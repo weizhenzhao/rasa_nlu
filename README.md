@@ -3,8 +3,8 @@
 This project include servel trainning data from real projects<br>
 including sanofi supply chain bot and the high talk bot in shanghai xuhui<br>
 
-## trainning process<br>
-### trainning with bert model<br>
+
+## trainning with bert model<br>
 
 #### First <br>
 
