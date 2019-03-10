@@ -1,0 +1,14 @@
+  language: "zh"
+
+  pipeline:
+  - name: "JiebaTokenizer"
+  - name: "BertVectorsFeaturizer"
+    ip: '127.0.0.1'
+    port: 5555
+    port_out: 5556
+    show_server_config: True
+    timeout: 10000
+  - name: "EmbeddingBertIntentClassifier"
+  - name: "SpacyNLP"
+  - name: "CRFEntityExtractor"
+  - name: "JiebaPsegExtractor"
