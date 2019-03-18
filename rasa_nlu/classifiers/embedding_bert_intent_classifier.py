@@ -51,14 +51,14 @@ class EmbeddingBertIntentClassifier(Component):
     defaults = {
         # nn architecture
         "num_hidden_layers": 2,
-        "hidden_layer_size": [1024, 256],
+        "hidden_layer_size": [768, 256],
         "batch_size": 256,
         "epochs": 200,
         "learning_rate": 0.001,
 
         # regularization
         "C2": 0.005,
-        "droprate": 0.2,
+        "droprate": 0.5,
 
         # flag if tokenize intents
         "intent_tokenization_flag": False,
@@ -157,7 +157,8 @@ class EmbeddingBertIntentClassifier(Component):
                  graph=None,  # type: Optional[tf.Graph]
                  message_placeholder=None,  # type: Optional[tf.Tensor]
                  intent_placeholder=None,  # type: Optional[tf.Tensor]
-                 y_predict=None   # type: Optional[tf.Tensor]
+                 y_predict=None,   # type: Optional[tf.Tensor]
+                 drop_out=None  # type: Optional[tf.float32]
                  ):
         # type: (...) -> None
         """Declare instant variables with default values"""
@@ -192,6 +193,7 @@ class EmbeddingBertIntentClassifier(Component):
         self.a_in = message_placeholder
         self.b_in = intent_placeholder
         self.y_predict = y_predict
+        self.drop_out = drop_out
 
     # training data helpers:
     @staticmethod
@@ -255,7 +257,7 @@ class EmbeddingBertIntentClassifier(Component):
 
         return X, Y, intents_for_X
 
-    def _output_training_stat(self, X, intents_for_X, is_training):
+    def _output_training_stat(self, X, intents_for_X, is_training,drop_out):
         """Output training statistics"""
         n = self.evaluate_on_num_examples
         ids = np.random.permutation(len(X))[:n]
@@ -264,7 +266,8 @@ class EmbeddingBertIntentClassifier(Component):
         train_sim = self.session.run(self.y_predict,
                                      feed_dict={self.a_in: X[ids],
                                                 self.b_in: all_Y,
-                                                is_training: False})
+                                                is_training: False,
+                                                drop_out:self.droprate})
 
         train_acc = np.mean(np.argmax(train_sim, -1) == intents_for_X[ids])
         return train_acc
@@ -290,14 +293,15 @@ class EmbeddingBertIntentClassifier(Component):
 
         self.graph = tf.Graph()
         with self.graph.as_default():
-
             self.a_in = tf.placeholder(tf.float32, (None, X.shape[-1]), name='a')
             self.b_in = tf.placeholder(tf.float32, (None, Y.shape[-1]), name='b')
 
             is_training = tf.placeholder_with_default(False, shape=())
 
+            self.drop_out = tf.placeholder(tf.float32,(), name='drop_out')
+
             # Create a graph for training
-            logits_train = conv_net(self.a_in, num_classes, self.num_hidden_layers, self.hidden_layer_size, self.C2, self.droprate, is_training=True)
+            logits_train = conv_net(self.a_in, num_classes, self.num_hidden_layers, self.hidden_layer_size, self.C2, self.drop_out, is_training=True)
 
             # Define loss and optimizer (with train logits, for dropout to take effect)
             loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits_train, labels=self.b_in)) + tf.losses.get_regularization_loss()
@@ -331,7 +335,8 @@ class EmbeddingBertIntentClassifier(Component):
                         {'loss': loss, 'train_op': train_op},
                         feed_dict={self.a_in: batch_a,
                                 self.b_in: batch_b,
-                                is_training: True}
+                                is_training: True,
+                                   self.drop_out:self.droprate}
                     )
 
                     ep_loss += sess_out.get('loss') / batches_per_epoch
@@ -341,7 +346,7 @@ class EmbeddingBertIntentClassifier(Component):
                             (ep + 1) % self.evaluate_every_num_epochs == 0 or
                             (ep + 1) == self.epochs):
                         train_acc = self._output_training_stat(X, intents_for_X,
-                                                            is_training)
+                                                            is_training,self.drop_out)
                         last_loss = ep_loss
 
                         pbar.set_postfix({
@@ -369,14 +374,14 @@ class EmbeddingBertIntentClassifier(Component):
 
             # get features (bag of words) for a message
             X = message.get("text_features").reshape(1, -1)
-
             # stack encoded_all_intents on top of each other
             # to create candidates for test examples
-            all_Y = self._create_all_Y(X.shape[0])
+            #all_Y = self._create_all_Y(X.shape[0])
+
+
 
             with self.graph.as_default():
-                y_predict = self.session.run(self.y_predict, feed_dict={self.a_in: X, self.b_in: all_Y})
-                
+                y_predict = self.session.run(self.y_predict, feed_dict={self.a_in: X,self.drop_out: 0})
                 intent_ids = y_predict[0][0]
                 intent_id_argmax = np.argmax(intent_ids, -1)
 
@@ -424,6 +429,14 @@ class EmbeddingBertIntentClassifier(Component):
             self.graph.add_to_collection('y_predict',
                                          self.y_predict)
 
+            self.graph.clear_collection('input_drop_rate')
+            self.graph.add_to_collection('input_drop_rate',
+                                         self.drop_out)
+
+            #remove variables in the trainable collections to prevent the variable be trained in the inference
+            trainable_collection = tf.get_collection_ref(tf.GraphKeys.TRAINABLE_VARIABLES)
+            trainable_collection.clear()
+
             saver = tf.train.Saver()
             saver.save(self.session, checkpoint)
 
@@ -466,11 +479,14 @@ class EmbeddingBertIntentClassifier(Component):
         meta = model_metadata.for_component_old(cls.name)
         config_proto = cls.get_config_proto(meta)
 
+        print("bert model loaded")
+
         if model_dir and meta.get("classifier_file"):
             file_name = meta.get("classifier_file")
             checkpoint = os.path.join(model_dir, file_name)
             graph = tf.Graph()
             with graph.as_default():
+                tf.set_random_seed(1)
                 sess = tf.Session(config=config_proto)
                 saver = tf.train.import_meta_graph(checkpoint + '.meta')
                 saver.restore(sess, checkpoint)
@@ -479,6 +495,9 @@ class EmbeddingBertIntentClassifier(Component):
                 b_in = tf.get_collection('intent_placeholder')[0]
 
                 y_predict = tf.get_collection('y_predict')
+
+                drop_out = tf.get_collection('input_drop_rate')[0]
+
 
             with io.open(os.path.join(
                     model_dir,
@@ -497,7 +516,8 @@ class EmbeddingBertIntentClassifier(Component):
                     graph=graph,
                     message_placeholder=a_in,
                     intent_placeholder=b_in,
-                    y_predict=y_predict
+                    y_predict=y_predict,
+                    drop_out = drop_out
             )
 
         else:
