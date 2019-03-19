@@ -10,8 +10,8 @@ including supply chain bot and the high talk bot in shanghai xuhui<br>
 
 you should clone the Tecent's bert as service project or pip install it directly<br>
 ```
-pip install bert-serving-server<br>
-pip install bert-serving-client<br>
+pip install bert-serving-server
+pip install bert-serving-client
 ```
 
 
@@ -24,7 +24,7 @@ Download the bert's Chinese model from the following link<br>
 #### Thirdly<br>
 Start the Bert serving to load the high talk data sets for classification<br>
 ```
-bert-serving-start -model_dir D:\chinese_L-12_H-768_A-12 -num_worker=1<br>
+bert-serving-start -model_dir D:\chinese_L-12_H-768_A-12 -num_worker=1
 ```
 
 
