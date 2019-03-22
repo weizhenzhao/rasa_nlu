@@ -36,8 +36,5 @@ train rasa nlu with the bert words vectors
 python train.py -c sample_configs/config_embedding_bert_intent_classifier.yml --data data/examples/luis/HighTalkSQSWLuisAppStaging-GA-20180824.json --path projects/bert_gongan_v4
 ```
 
-#### Lastly
-an example video with chatbot for reference
 
-[![Watch the video](https://github.com/weizhenzhao/rasa_nlu/raw/master/QQ截图20190310111321.png)](https://github.com/weizhenzhao/rasa_nlu/raw/master/speech.mp4)
 
